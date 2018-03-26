@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title data-i18n="resources.title_graphicSymbolData"></title>
+    <style type="text/css">
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #fff;
+            width: 100%;
+            height: 100%
+        }
+
+        #map {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 1px solid #3473b7;
+        }
+
+        #toolbar {
+            position: absolute;
+            top: 50px;
+            right: 10px;
+            width: 300px;
+            text-align: center;
+            z-index: 100;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+<div id="toolbar" class="panel panel-primary">
+    <div class='panel-heading'>
+        <h5 class='panel-title text-center' data-i18n="resources.text_graphicSymbolData"></h5>
+    </div>
+    <div class='panel-body content'>
+        <div class='panel'>
+            <div class='input-group'>
+                <span class='input-group-addon'><span data-i18n="resources.text_countsDraw"></span><span
+                        data-i18n="[title]resources.text_requiredField" style='color: red;'> * </span></span>
+                <input id='total' type='text' class='form-control' value='1000'/>
+            </div>
+        </div>
+        <div class='input-group'>
+            <input type="button" class="btn btn-default" data-i18n="[value]resources.btn_startDraw"
+                   onclick="addData()"/>&nbsp;&nbsp;
+            <input type="button" class="btn btn-default" data-i18n="[value]resources.text_remove"
+                   onclick="removeData()"/>
+        </div>
+    </div>
+</div>
+<div id="map"></div>
+<script type="text/javascript" include="bootstrap,widgets.alert" src="../js/include-web.js"></script>
+<script type="text/javascript" exclude="iclient-classic" src="../../dist/include-classic.js"></script>
+<script>
+    var map, layer, graphicLayer,
+        host = window.isLocal ? window.server : "http://support.supermap.com.cn:8090",
+        url = host + "/iserver/services/map-china400/rest/maps/China";
+    init();
+
+    function init() {
+        if (!document.createElement("canvas").getContext) {
+            widgets.alert.showAlert(resources.msg_supportCanvas, false);
+            return;
+        }
+        map = new SuperMap.Map("map", {
+            controls: [
+                new SuperMap.Control.Zoom(),
+                new SuperMap.Control.Navigation(),
+            ]
+        });
+        map.addControl(new SuperMap.Control.LayerSwitcher(), new SuperMap.Pixel(42, 80));
+        layer = new SuperMap.Layer.TiledDynamicRESTLayer("World", url, null, {maxResolution: "auto"});
+        layer.events.on({"layerInitialized": addLayer});
+        graphicLayer = new SuperMap.Layer.Graphics("Graphic Layer");
+    }
+
+    function addLayer() {
+        map.addLayers([layer, graphicLayer]);
+        //显示地图范围
+        map.setCenter(new SuperMap.LonLat(0, 0), 3);
+    }
+
+    //symbol相关属性 填充色、边框颜色、半径、
+    var fillColors = ['rgba(255,153,0,0.4)', 'rgba(70,80,224,0.4)', 'rgba(60,150,79,0.4)', 'rgba(176,61,35,0.4)'];
+    var strokeColors = ['rgba(255,204,0,0.2)', 'rgba(12,21,138,0.2)', 'rgba(20,99,32,0.2)', 'rgba(145,43,20,0.2)'];
+    var radius = [3, 6, 9, 12, 15, 18];
+    var sybolCount = fillColors.length * radius.length * 2;
+    var symbols = [];
+    for (var i = 0; i < fillColors.length; i++) {
+        for (var j = 0; j < radius.length; j++) {
+            //circle  symbol
+            symbols.push(new SuperMap.Style.Circle({
+                radius: radius[j],
+                fill: new SuperMap.Style.Fill({
+                    color: fillColors[i]
+                }),
+                stroke: new SuperMap.Style.Stroke({
+                    color: strokeColors[i]
+                })
+            }));
+            //star symbol
+            symbols.push(new SuperMap.Style.RegularShape({
+                pointsLength: 5,
+                radius: radius[j],
+                radius1: radius[j] * 0.6,
+                fill: new SuperMap.Style.Fill({
+                    color: fillColors[i]
+                }),
+                stroke: new SuperMap.Style.Stroke({
+                    color: strokeColors[i]
+                })
+            }));
+        }
+    }
+
+    var total, t1, t2;
+    var e = 10000000;
+
+    function addData() {
+        widgets.alert.clearAlert();
+        graphicLayer.removeAllGraphics();
+        var total = document.getElementById("total").value;
+        t1 = new Date().getTime();
+
+        var points = [];
+        for (var i = 0; i < total; i++) {
+            var point = new SuperMap.Geometry.Point(2 * e * Math.random() - e, 2 * e * Math.random() - e);
+            var pointVector = new SuperMap.Graphic(point);
+            pointVector.style = {
+                image: symbols[i % sybolCount]
+            };
+            points.push(pointVector)
+        }
+        graphicLayer.addGraphics(points);
+
+        //消耗时间计算
+        t2 = new Date().getTime();
+        //console.info(total + "个总时间为：" + (t2-t1) + "ms");
+        widgets.alert.showAlert(resources.msg_totalTime1 + total + resources.msg_totalTime2 + total + (t2 - t1) + "ms", true);
+    }
+
+    //移除数据
+    function removeData() {
+        widgets.alert.clearAlert();
+        graphicLayer.removeAllGraphics();
+        graphicLayer.refresh();
+    }
+
+</script>
+
+</body>
+</html>

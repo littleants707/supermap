@@ -1,0 +1,212 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title data-i18n="resources.title_editFeature"></title>
+    <script type="text/javascript" include="bootstrap,widgets.alert" src="../js/include-web.js"></script>
+    <script type="text/javascript" src="../../dist/include-leaflet.js"></script>
+    <style>
+        .leaflet-tooltip, .leaflet-tooltip:before {
+            color: white;
+            border: none;
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .tooltip-inner {
+            width: 80px;
+            background-color: transparent;
+            color: #515151;
+        }
+
+    </style>
+</head>
+<body style=" margin: 0;overflow: hidden;background: #fff;width: 100%;height:100%;position: absolute;top: 0;">
+<div id="map" style="margin:0 auto;width: 100%;height: 100%"></div>
+<script type="text/javascript">
+    var host = window.isLocal ? window.server : "http://support.supermap.com.cn:8090";
+    var map, marker, featureGroup, resultLayer, featureService,
+        baseUrl = host + "/iserver/services/map-world/rest/maps/World",
+        url = host + "/iserver/services/data-world/rest/data";
+    map = L.map('map', {
+        preferCanvas: true,
+        crs: L.CRS.EPSG4326,
+        center: {lon: 0, lat: 0},
+        maxZoom: 18,
+        zoom: 2
+    });
+    L.supermap.tiledMapLayer(baseUrl).addTo(map);
+    featureGroup = L.featureGroup().addTo(map);
+    featureService = L.supermap.featureService(url);
+    initFeature();
+    initEditView();
+
+    function initFeature() {
+        var polygon = L.polygon([[20, 118], [20, 120], [50, 120], [50, -120], [20, 118]]);
+        var getFeatureParams = new SuperMap.GetFeaturesByGeometryParameters({
+            toIndex: -1,
+            datasetNames: ["World:Capitals"],
+            geometry: polygon
+        });
+
+        featureService.getFeaturesByGeometry(getFeatureParams, function (serviceResult) {
+            resultLayer = L.geoJSON(serviceResult.result.features).addTo(map);
+            resultLayer.on("mousemove", function (e) {
+                e.layer.bindPopup(resources.text_capital + "：" + e.layer.feature.properties.CAPITAL).openPopup();
+            });
+            resultLayer.on("mouseout", function (e) {
+                e.layer.closePopup();
+            });
+        });
+    }
+
+    function initEditView() {
+        var infoView = L.control({position: 'topright'});
+        infoView.onAdd = function () {
+            var me = this;
+            me._div = L.DomUtil.create('div', 'panel panel-primary');
+            me._div.innerHTML = "<div class='panel-heading'>" +
+                "<h5 class='panel-title text-center'>" + resources.text_edit + "</h5></div><div class='panel-body content'>" +
+                "<input type='button' class='btn btn-default' value='" + resources.btn_addMarker + "' onclick='addMarker()'/>&nbsp;" +
+                "<input type='button' class='btn btn-default' value='" + resources.btn_undoAdd + "' onclick='revocationMarker()'/>&nbsp;" +
+                "<input type='button' class='btn btn-default' value='" + resources.text_input_value_submit + "' onclick='commit()'/>&nbsp;" +
+                "<input type='button' class='btn btn-default' value='" + resources.text_input_value_clear + "' onclick='clearLayer()'/></div>";
+
+            handleMapEvent(me._div, me._map);
+            return me._div;
+        };
+        infoView.addTo(map);
+    }
+
+    function handleMapEvent(div, map) {
+        if (!div || !map) {
+            return;
+        }
+        div.addEventListener('mouseover', function () {
+            map.dragging.disable();
+            map.scrollWheelZoom.disable();
+            map.doubleClickZoom.disable();
+        });
+        div.addEventListener('mouseout', function () {
+            map.dragging.enable();
+            map.scrollWheelZoom.enable();
+            map.doubleClickZoom.enable();
+        });
+    }
+
+    //添加鼠标滑动事件
+    var tooltip = L.tooltip({
+        direction: 'right'
+    });
+    var pointerMoveHandler = function (evt) {
+        tooltip.setContent(resources.text_selectMarkerToDelete);
+        tooltip.setLatLng(evt.latlng);
+        tooltip.addTo(map);
+    };
+
+
+    function addMarker() {
+        widgets.alert.clearAlert();
+        closeClearListener();
+        var xmax = 120, xmin = 100, ymax = 50, ymin = 20,
+            point = [];
+        if (!featureGroup.hasLayer(marker)) {
+
+            point = [
+                Math.floor(Math.random() * (ymax - ymin + 1) + ymin),
+                Math.floor(Math.random() * (xmax - xmin + 1) + xmin)
+            ];
+            marker = L.circleMarker(point, {color: "red"});
+            featureGroup.addLayer(marker);
+            featureGroup.addTo(map);
+            map.flyTo(point, 5);
+        } else {
+            featureGroup.clearLayers();
+            point = [
+                Math.floor(Math.random() * (ymax - ymin + 1) + ymin),
+                Math.floor(Math.random() * (xmax - xmin + 1) + xmin)
+            ];
+            marker = L.circleMarker(point, {color: "red"});
+            featureGroup.addLayer(marker);
+            featureGroup.addTo(map);
+            map.flyTo(point, 5);
+        }
+    }
+
+    function revocationMarker() {
+        closeClearListener();
+        if (featureGroup.hasLayer(marker)) {
+            featureGroup.clearLayers();
+            marker = null;
+        } else {
+            widgets.alert.showAlert(resources.msg_noRevocableMarker, false);
+        }
+    }
+
+    function commit() {
+        widgets.alert.clearAlert();
+        closeClearListener();
+        if (featureGroup.hasLayer(marker)) {
+            marker = marker.toGeoJSON();
+            marker.properties = {POP: 1, CAPITAL: 'test'};
+            var addFeatureParams = new SuperMap.EditFeaturesParameters({
+                dataSourceName: "World",
+                dataSetName: "Capitals",
+                features: marker,
+                editType: "add",
+                returnContent: true
+            });
+            featureService.editFeatures(addFeatureParams, function (serviceResult) {
+                if (serviceResult.result.succeed) {
+                    featureGroup.clearLayers();
+                    marker = null;
+                    map.removeLayer(resultLayer);
+                    resultLayer = null;
+                    initFeature();
+                    widgets.alert.showAlert(resources.msg_submitSuccess, true);
+                }
+            });
+        } else {
+            widgets.alert.showAlert(resources.msg_addMarker, false);
+        }
+    }
+
+    function clearLayer() {
+        map.on('mousemove', pointerMoveHandler);
+        resultLayer.on("click", layerClickListener);
+        widgets.alert.clearAlert();
+    }
+
+    function layerClickListener(e) {
+        var deleteParams = new SuperMap.EditFeaturesParameters({
+            dataSourceName: "World",
+            dataSetName: "Capitals",
+            IDs: [e.layer.feature.properties.ID],
+            editType: "delete"
+        });
+        featureService.editFeatures(deleteParams, function (serviceResult) {
+            if (serviceResult.result.succeed) {
+                map.removeLayer(resultLayer);
+                resultLayer = null;
+                initFeature();
+                widgets.alert.showAlert(resources.text_deleteSuccess, true);
+                closeClearListener();
+            } else {
+                widgets.alert.showAlert(resources.msg_deleteFailed, false);
+            }
+        });
+    }
+
+    function closeClearListener() {
+        if (map.hasLayer(tooltip)) {
+            tooltip.removeFrom(map);
+        }
+        if (resultLayer) {
+            resultLayer.off("click", layerClickListener);
+        }
+        map.off('mousemove', pointerMoveHandler);
+    }
+
+
+</script>
+</body>
+</html>

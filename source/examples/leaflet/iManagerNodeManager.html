@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title data-i18n="resources.title_nodeManagementUseExample"></title>
+
+    <style>
+        .panel {
+            margin-bottom: 0;
+        }
+
+        #listTable th, #listTable td {
+            padding: 5px;
+        }
+    </style>
+</head>
+<body style=" margin: 0;overflow: auto;background: #fff;width: 100%;height:100%;position: absolute;top: 0;">
+<div class="container">
+    <div class="page-header">
+        <h4 data-i18n="resources.title_nodeManagementUseExample"></h4>
+    </div>
+    <div class="row">
+        <table class="table table-bordered col-md-6">
+            <thead>
+            <tr>
+                <th class="text-center" data-i18n="resources.text_function"></th>
+                <th class="text-center" data-i18n="resources.text_instance"></th>
+            </tr>
+            </thead>
+            <tbody>
+            <!--登录-->
+            <tr>
+                <td class="text-center text-success" data-i18n="resources.text_login"></td>
+                <td>
+                    <div class="col-md-10 col-md-offset-1">
+                        <form class="form-horizontal">
+                            <fieldset>
+                                <div class="form-group">
+                                    <label for="loginUrl_iManager" class="col-md-2 control-label"
+                                           data-i18n="resources.text_serviceAddress"></label>
+                                    <div class="col-md-8">
+                                        <input type="text" class="form-control" id="loginUrl_iManager"
+                                               data-i18n="[placeholder]resources.text_iManagerAddress">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="username_iManager" class="col-md-2 control-label"
+                                           data-i18n="resources.text_userName"></label>
+
+                                    <div class="col-md-8">
+                                        <input type="text" class="form-control" id="username_iManager" value="admin">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="password_iManager" class="col-md-2 control-label"
+                                           data-i18n="resources.text_password"></label>
+
+                                    <div class="col-md-8">
+                                        <input type="password" class="form-control" id="password_iManager"
+                                               value="admin">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <div class="col-md-12 text-center">
+                                        <a class="btn btn-success" onclick="loginManager()"
+                                           data-i18n="resources.text_login"></a>
+                                    </div>
+                                </div>
+                            </fieldset>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+
+            <!--token 获取iServer列表-->
+            <tr>
+                <td class="text-center text-success" data-i18n="resources.text_getIserverlist"></td>
+                <td>
+                    <div class="col-md-10 col-md-offset-1">
+                        <form class="form-horizontal">
+                            <fieldset>
+                                <div class="form-group">
+                                    <div class="col-md-12">
+                                        <table id="listTable">
+                                            <thead>
+                                            <tr role="row">
+                                                <th rowspan="1" colspan="1" style="width: 50px;">
+                                                    <div><span>id</span></div>
+                                                </th>
+                                                <th rowspan="1" colspan="1" style="width: 150px;">
+                                                    <div><span data-i18n="resources.text_name"></span></div>
+                                                </th>
+                                                <th rowspan="1" colspan="1" style="width: 150px;">
+                                                    <div><span data-i18n="resources.text_address"></span></div>
+                                                </th>
+                                            </tr>
+                                            </thead>
+                                            <tbody id="nodeList">
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <div class="col-md-12 text-center">
+                                        <a class="btn btn-success" onclick="iServerList()"
+                                           data-i18n="resources.text_gain"></a>
+                                    </div>
+                                </div>
+                            </fieldset>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            <!--token 停止节点-->
+
+            <!--token 启动节点-->
+            <tr>
+                <td class="text-center text-success" data-i18n="resources.text_activateNode"></td>
+                <td>
+                    <div class="col-md-10 col-md-offset-1">
+                        <form class="form-horizontal">
+                            <fieldset>
+                                <div class="form-group">
+                                    <label for="start_node_ids" class="col-md-2 control-label" data-i18n="resources.text_nodeID"></label>
+                                    <div class="col-md-8">
+                                        <input type="text" class="form-control" id="start_node_ids"
+                                               data-i18n="[placeholder]resources.text_nodeIDNeedToActivate">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <div class="col-md-12 text-center">
+                                        <a class="btn btn-success" onclick="startNodes()" data-i18n="resources.btn_startup"></a>
+                                    </div>
+                                </div>
+                            </fieldset>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+
+            <!--token 停止节点-->
+            <tr>
+                <td class="text-center text-success" data-i18n="resources.text_stopNode"></td>
+                <td>
+                    <div class="col-md-10 col-md-offset-1">
+                        <form class="form-horizontal">
+                            <fieldset>
+                                <div class="form-group">
+                                    <label for="stop_node_ids" class="col-md-2 control-label" data-i18n="resources.text_nodeID"></label>
+                                    <div class="col-md-8">
+                                        <input type="text" class="form-control" id="stop_node_ids"
+                                               data-i18n="[placeholder]resources.text_nodeIDNeedToStop">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <div class="col-md-12 text-center">
+                                        <a class="btn btn-success" onclick="stopNodes()" data-i18n="resources.btn_stop"></a>
+                                    </div>
+                                </div>
+                            </fieldset>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+
+            <!--创建iServer-->
+            <tr>
+                <td class="text-center text-success" data-i18n="resources.text_createiServer"></td>
+                <td>
+                    <div class="col-md-10 col-md-offset-1">
+                        <form class="form-horizontal">
+                            <fieldset>
+                                <div class="form-group">
+                                    <label for="create_nodeName" class="col-md-2 control-label" data-i18n="resources.text_nodeName"></label>
+                                    <div class="col-md-8">
+                                        <input type="text" class="form-control" id="create_nodeName"
+                                               data-i18n="[placeholder]resources.text_input_tips_nodeName">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="create_physicalMachineName" class="col-md-2 control-label" data-i18n="resources.text_physicalMachine"></label>
+                                    <div class="col-md-8">
+                                        <input type="text" class="form-control" id="create_physicalMachineName"
+                                               data-i18n="[placeholder]resources.text_input_tips_physicalMachine">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <div class="col-md-12 text-center">
+                                        <a class="btn btn-success" onclick="createIServer()" data-i18n="resources.btn_create"></a>
+                                    </div>
+                                </div>
+                            </fieldset>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+
+            <tr>
+                <td colspan="3">
+                    <div class="row">
+                        <div class="col-md-12  text-center">
+                            <div class="col-md-12" id="iportal_map" style=" height: 300px;"></div>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+<script type="text/javascript" include="jquery,bootstrap-css" src="../js/include-web.js"></script>
+<script type="text/javascript" src="../../dist/include-leaflet.js"></script>
+<script>
+
+    $(document).ready(function () {
+        $("#loginUrl_iManager").val("http://imgr.supermapol.com/imanager");
+    });
+
+    /*登录*/
+    function loginManager() {
+        var loginUrl = $("#loginUrl_iManager").val();
+        if (!checkValue(loginUrl, resources.text_tips_ServiceUrl)) {
+            return;
+        }
+        var userName = $('#username_iManager').val();
+        var password = $('#password_iManager').val();
+        SuperMap.SecurityManager.loginManager(loginUrl, {userName: userName, password: password});
+    }
+
+    /*登录 end*/
+
+    /*获取iServer List*/
+    function iServerList() {
+        var url = getIManagerURL();
+        var iManager = new SuperMap.iManager(url)
+            .iServerList()
+            .then(function (response) {
+                console.log(JSON.stringify(response));
+                var result = response;
+                if (result.list) {
+                    var html = "";
+                    for (var i = 0; i < result.list.length; i++) {
+                        var obj = result.list[i];
+                        var address = obj.productInfos ? obj.productInfos[0].address : "";
+                        html += "<tr role='row'><td>" + obj.id + "</td><td>" + obj.nodeName + "</td><td><a href='" + address + "' target='_blank'>" + address + "</a></td><td></tr>";
+                    }
+                    $("#nodeList").html(html);
+                }
+            });
+    }
+
+    /*获取iServer List end*/
+
+    /*启动节点*/
+    function startNodes() {
+        var url = getIManagerURL();
+        var id = $("#start_node_ids").val();
+        if (!checkValue(id, resources.text_tips_id)) {
+            return;
+        }
+        var ids = [id];
+        var iManager = new SuperMap.iManager(url)
+            .startNodes(ids)
+            .then(function (response) {
+                console.log(JSON.stringify(response));
+                alert(JSON.stringify(response));
+            });
+    }
+
+    /*启动节点 end*/
+
+    /*停止节点*/
+    function stopNodes() {
+        var url = getIManagerURL();
+        var id = $("#stop_node_ids").val();
+        if (!checkValue(id, resources.text_tips_id)) {
+            return;
+        }
+        var ids = [id];
+        var iManager = new SuperMap.iManager(url)
+            .stopNodes(ids)
+            .then(function (response) {
+                console.log(JSON.stringify(response));
+                alert(JSON.stringify(response));
+            });
+    }
+
+    /*停止节点 end*/
+
+    /*创建iServer*/
+    function createIServer() {
+        var url = getIManagerURL();
+        var nodeName = $("#create_nodeName").val();
+        var physicalMachineName = $("#create_physicalMachineName").val();
+        if (!checkValue(nodeName, resources.text_input_tips_nodeName)) {
+            return;
+        }
+        if (!checkValue(physicalMachineName, resources.text_tips_physicalMachineName)) {
+            return;
+        }
+        var param = {nodeName: nodeName, physicalMachineName: physicalMachineName};
+        var iManager = new SuperMap.iManager(url)
+            .createIServer(param)
+            .then(function (response) {
+                console.log(JSON.stringify(response));
+                alert(JSON.stringify(response));
+            });
+    }
+
+    /*创建iServer end*/
+
+    function getIManagerURL() {
+        return $("#loginUrl_iManager").val();
+    }
+
+    function checkValue(value, tip) {
+        if (value === "") {
+            alert(tip);
+            return false;
+        }
+        return true;
+    }
+</script>
+</body>
+</html>

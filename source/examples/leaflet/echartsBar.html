@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>ECharts Bar with Leaflet</title>
+    <script type="text/javascript" src="../js/include-web.js"></script>
+</head>
+<body style=" margin: 0;overflow: hidden;background: #fff;width: 100%;height:100%;position: absolute;top: 0;">
+<div id="map" style="margin:0 auto;width: 100%;height: 100%"></div>
+<script type="text/javascript" include="echarts" src="../../dist/include-leaflet.js"></script>
+<script type="text/javascript">
+    var host = window.isLocal ? window.server : "http://support.supermap.com.cn:8090";
+    var map, resultLayer,
+        url = host + "/iserver/services/map-world/rest/maps/世界地图_Gray";
+    var url2 = host + "/iserver/services/map-china400/rest/maps/China";
+    map = L.map('map', {
+        preferCanvas: true,
+        crs: L.CRS.EPSG4326,
+        center: [30.236064370321, 120.14322240845],
+        maxZoom: 18,
+        zoom: 5
+    });
+    L.supermap.tiledMapLayer(url).addTo(map);
+    option = {
+        legend: {
+            data: [resources.text_rainfall, resources.text_runoff],
+            align: 'left'
+        },
+        toolbox: {
+            feature: {
+                magicType: {
+                    type: ['stack', 'tiled']
+                },
+                saveAsImage: {
+                    pixelRatio: 2
+                }
+            }
+        },
+        tooltip: {},
+        xAxis: {
+            data: [resources.text_monday,resources.text_tuesday,resources.text_wednesday,resources.text_thursday,resources.text_friday,resources.text_saturday,resources.text_sunday],
+            silent: false,
+            splitLine: {
+                show: false
+            }
+        },
+        yAxis: {},
+        series: [{
+            name: 'bar',
+            type: 'bar',
+            animationDelay: function (idx) {
+                return idx * 10;
+            }
+        }, {
+            name: 'bar2',
+            type: 'bar',
+            animationDelay: function (idx) {
+                return idx * 10 + 100;
+            }
+        }],
+        animationEasing: 'elasticOut',
+        animationDelayUpdate: function (idx) {
+            return idx * 5;
+        }
+    };
+    var div = L.DomUtil.create('div');
+    var chart = echarts.init(div, '', {
+        width: 500,
+        height: 300
+    });
+    chart.setOption(option);
+    query();
+
+    function query() {
+        clearLayer();
+        var param = new SuperMap.QueryBySQLParameters({
+            queryParams: [{
+                name: "China_ProCenCity_pt@China",
+                attributeFilter: "1 = 1"
+            }, {
+                name: "China_Capital_pt@China",
+                attributeFilter: "1 = 1"
+            }]
+        });
+
+        L.supermap
+            .queryService(url2)
+            .queryBySQL(param, function (serviceResult) {
+                serviceResult.result.recordsets.map(function (records) {
+                    resultLayer = L.geoJSON(records.features, {
+                        coordsToLatLng: function (coords) {
+                            var latlng = L.CRS.EPSG3857.unproject(L.point(coords[0], coords[1]));
+                            latlng.alt = coords[2];
+                            return latlng;
+                        }
+                    }).bindPopup(function (layer) {
+                        var city = layer.feature.properties.NAME;
+                        var data1 = [];
+                        var data2 = [];
+                        for (var i = 0; i < 7; i++) {
+                            var data = Math.random().toFixed(2);
+                            data1.push(data);
+                            data2.push(data * (Math.random() + 1.5));
+
+                        }
+                        chart.setOption({
+                            title: {
+                                text: city,
+                                subtext: resources.text_fictitiouData,
+                            },
+                            series: [
+                                {
+                                    name: resources.text_rainfall,
+                                    data: data1
+                                },
+                                {
+                                    name:resources.text_runoff,
+                                    data: data2
+                                }
+                            ]
+                        });
+                        return chart.getDom();
+                    }, {maxWidth: 600}).addTo(map);
+                });
+            });
+    }
+
+    function clearLayer() {
+        if (resultLayer) {
+            resultLayer.removeFrom(map);
+            resultLayer.removeFrom(map);
+        }
+    }
+</script>
+</body>
+</html>

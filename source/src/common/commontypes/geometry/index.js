@@ -1,0 +1,23 @@
+import {Collection} from './Collection';
+import {Curve} from './Curve';
+import {GeoText} from './GeoText' ;
+import {LinearRing} from './LinearRing' ;
+import {LineString} from './LineString' ;
+import {MultiLineString} from './MultiLineString' ;
+import {MultiPoint} from './MultiPoint' ;
+import {MultiPolygon} from './MultiPolygon' ;
+import {Point as GeometryPoint} from './Point' ;
+import {Polygon} from './Polygon' ;
+import {Rectangle} from './Rectangle';
+
+export {Collection} ;
+export {Curve} ;
+export {GeoText} ;
+export {LinearRing};
+export {LineString} ;
+export {MultiLineString} ;
+export {MultiPoint} ;
+export {MultiPolygon} ;
+export {GeometryPoint} ;
+export {Polygon};
+export {Rectangle} ;

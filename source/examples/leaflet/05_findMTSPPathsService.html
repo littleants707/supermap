@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title data-i18n="resources.title_findMTSPPathsServiceLogistics"></title>
+    <script type="text/javascript" src="../js/include-web.js"></script>
+</head>
+<body style=" margin: 0;overflow: hidden;background: #fff;width: 100%;height:100%;position: absolute;top: 0;">
+<div id="map" style="margin:0 auto;width: 100%;height: 100%"></div>
+<script type="text/javascript" src="../../dist/include-leaflet.js"></script>
+<script type="text/javascript">
+    var host = window.isLocal ? window.server : "http://support.supermap.com.cn:8090";
+    var map, findMTSPPathsService, resultSetting, analystParameter, findMTSPPathsParameter,
+        baseUrl = host + "/iserver/services/map-changchun/rest/maps/长春市区图",
+        serviceUrl = host + "/iserver/services/transportationanalyst-sample/rest/networkanalyst/RoadNet@Changchun";
+    map = L.map('map', {
+        crs: L.CRS.NonEarthCRS({
+            bounds: L.bounds([48.4, -7668.25], [8958.85, -55.58]),
+            origin: L.point(48.4, -55.58)
+        }),
+        center: [-3600, 4700],
+        maxZoom: 18,
+        zoom: 2
+    });
+    L.supermap.tiledMapLayer(baseUrl, {noWrap: true})
+        .addTo(map)
+        .once("load", function () {
+            findMTSPPathsProcess();
+        });
+
+    function findMTSPPathsProcess() {
+        //添加配送点
+        var marker1 = L.marker([-5500, 6000]).addTo(map);
+        var marker2 = L.marker([-2500, 5500]).addTo(map);
+        var marker3 = L.marker([-3500, 2500]).addTo(map);
+        //为配送点添加弹窗
+        marker1.bindPopup(resources.text_distributionCentre1);
+        marker2.bindPopup(resources.text_distributionCentre2);
+        marker3.bindPopup(resources.text_distributionCentre3);
+
+        //添加配送目的地
+        var myIcon = L.icon({
+            iconUrl: '../img/marker.png',
+            iconSize: [44, 30]
+        });
+        var marker4 = L.marker([-5000, 5000], {icon: myIcon}).addTo(map);
+        var marker5 = L.marker([-2800, 8000], {icon: myIcon}).addTo(map);
+        //为配送点添加弹窗
+        marker4.bindPopup(resources.text_destination1);
+        marker5.bindPopup(resources.text_destination2);
+
+        //创建多旅行商分析服务实例
+        findMTSPPathsService = L.supermap.networkAnalystService(serviceUrl);
+        //创建多旅行商分析参数实例
+        resultSetting = new SuperMap.TransportationAnalystResultSetting({
+            returnEdgeFeatures: true,
+            returnEdgeGeometry: true,
+            returnEdgeIDs: true,
+            returnNodeFeatures: true,
+            returnNodeGeometry: true,
+            returnNodeIDs: true,
+            returnPathGuides: true,
+            returnRoutes: true
+        });
+        analystParameter = new SuperMap.TransportationAnalystParameter({
+            resultSetting: resultSetting,
+            weightFieldName: "length"
+        });
+        findMTSPPathsParameter = new SuperMap.FindMTSPPathsParameters({
+            centers: [L.latLng(-5500, 6000), L.latLng(-2500, 5500), L.latLng(-3500, 2500)],
+            isAnalyzeById: false,
+            nodes: [L.latLng(-5000, 5000), L.latLng(-2800, 8000)],
+            hasLeastTotalCost: true,
+            parameter: analystParameter
+        });
+        //进行查找
+        findMTSPPathsService.findMTSPPaths(findMTSPPathsParameter, function (serviceResult) {
+            var result = serviceResult.result;
+            result.pathList.map(function (result) {
+                L.geoJSON(result.route, {color: "green"}).addTo(map);
+            });
+        });
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+{
+    "opts": {
+        "recurse": true,
+        "template": "../template",
+        "configPath": "../classic",
+        "destination": "./docs/classic"
+    },
+    "disqus":"",
+    "tags": {
+        "allowUnknownTags": true
+    },
+    "i18n": {
+        "defaultLang": "en",
+        "possibleLang": ["en"],
+        "dbFilePath":"./build/jsdocs/classic"
+    },
+    "source": {
+        "includePattern": ".+\\.js?$",
+        "excludePattern": ".+\\\\src\\\\common\\\\iServer\\\\.*Service|Base|Parameters.js?$",
+        "include": [
+            "src/classic","src/common/thirdparty"
+        ],
+        "exclude": [
+            "src/common/overlay/feature","src/common/overlay/levelRenderer","src/classic/libs","src/classic/theme","src/classic/resource"
+        ]
+    },
+    "plugins": ["plugins/markdown"],
+    "templates": {
+        "cleverLinks": false,
+        "monospaceLinks": false,
+        "default": {
+            "outputSourceFiles": false
+        }
+        //"applicationName": "iClient Classic"
+    }
+}

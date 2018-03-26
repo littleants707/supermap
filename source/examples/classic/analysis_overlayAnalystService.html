@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title data-i18n="resources.title_overlayAnalyst"></title>
+    <style type="text/css">
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #fff;
+            width: 100%;
+            height: 100%
+        }
+
+        #map {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 1px solid #3473b7;
+        }
+
+        #toolbar {
+            position: absolute;
+            top: 50px;
+            right: 10px;
+            text-align: center;
+            z-index: 100;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+<div id="toolbar" class="panel panel-primary">
+    <div class='panel-heading'>
+        <h5 class='panel-title text-center' data-i18n="resources.text_overlayAnalyst"></h5></div>
+    <div class='panel-body content'>
+        <input type="button" class="btn btn-default" data-i18n="[value]resources.btn_overlayAnalyst" onclick="overlayAnalystProcess()"/>&nbsp;
+        <input type="button" class="btn btn-default" data-i18n="[value]resources.text_removeResult" onclick="removeResult()"/>
+    </div>
+</div>
+<div id="map"></div>
+<script type="text/javascript" include="bootstrap,widgets.alert" src="../js/include-web.js"></script>
+<script type="text/javascript" exclude="iclient-classic" src="../../dist/include-classic.js"></script>
+<script>
+    var host = window.isLocal ? window.server : "http://support.supermap.com.cn:8090";
+    var map, local, baseLayer, resultLayer, Spatialanalyst_sample,
+        style = {
+            strokeColor: "#343434",
+            strokeWidth: 0.1,
+            pointerEvents: "visiblePainted",
+            fill: true,
+            fillColor: "#304DBE",
+            fillOpacity: 0.8
+        },
+        url = host + "/iserver/services/map-jingjin/rest/maps/京津地区人口分布图_专题图",
+        url2 = host + "/iserver/services/spatialanalyst-sample/restjsr/spatialanalyst";
+
+    init();
+
+    function init() {
+        map = new SuperMap.Map("map", {
+            controls: [
+                new SuperMap.Control.ScaleLine(),
+                new SuperMap.Control.Zoom(),
+                new SuperMap.Control.Navigation({
+                    dragPanOptions: {
+                        enableKinetic: true
+                    }
+                })]
+        });
+        map.addControl(new SuperMap.Control.LayerSwitcher(), new SuperMap.Pixel(42, 80));
+        baseLayer = new SuperMap.Layer.TiledDynamicRESTLayer("京津地区人口分布图_专题图", url, {
+            transparent: true,
+            cacheEnabled: true
+        }, {maxResolution: "auto"});
+        baseLayer.events.on({"layerInitialized": addLayer});
+        resultLayer = new SuperMap.Layer.Vector("叠加结果");
+    }
+
+    function addLayer() {
+        map.addLayers([baseLayer, resultLayer]);
+        map.setCenter(new SuperMap.LonLat(117, 40), 1);
+        map.allOverlays = true;
+    }
+
+    function overlayAnalystProcess() {
+        widgets.alert.clearAlert();
+        resultLayer.removeAllFeatures();
+        var overlayServiceByDatasets = new SuperMap.REST.OverlayAnalystService(url2),
+            dsOverlayAnalystParameters = new SuperMap.REST.DatasetOverlayAnalystParameters({
+                sourceDataset: "BaseMap_R@Jingjin",
+                operateDataset: "Neighbor_R@Jingjin",
+                tolerance: 0,
+                operation: SuperMap.REST.OverlayOperationType.UNION
+            });
+        overlayServiceByDatasets.events.on({
+            "processCompleted": overlayAnalystCompleted,
+            "processFailed": overlayAnalystFailed
+        });
+        overlayServiceByDatasets.processAsync(dsOverlayAnalystParameters);
+    }
+
+    function overlayAnalystCompleted(args) {
+        var feature, features = [];
+        for (var i = 0; i < args.result.recordset.features.length; i++) {
+            feature = args.result.recordset.features[i];
+            feature.style = style;
+            features.push(feature);
+        }
+        resultLayer.addFeatures(features);
+    }
+
+    function overlayAnalystFailed(args) {
+        widgets.alert.showAlert(args.error.errorMsg,false);
+    }
+
+    function removeResult() {
+       widgets.alert.clearAlert();
+        resultLayer.removeAllFeatures();
+    }
+</script>
+
+</body>
+</html>

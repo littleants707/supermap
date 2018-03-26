@@ -1,0 +1,197 @@
+﻿<!DOCTYPE>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>天地图WMTS图层</title>
+    <style type="text/css">
+    body {
+        margin: 0;
+        overflow: hidden;
+        background: #fff;
+    }
+
+    #map {
+        position: relative;
+        height: 100%;
+        width: 100%;
+        border: 1px solid #3473b7;
+    }
+    </style>
+    <script src='libs/SuperMap.Include.js'></script>
+    <script type="text/javascript">
+    var map, layer, vectorLayer, utfgrid, utfgridcontrol, hoverID,
+        url = "http://support.supermap.com.cn:8090/iserver/services/map-china400/rest/maps/China_4326";
+
+    function init() {
+        map = new SuperMap.Map("map", {
+            controls: [
+                new SuperMap.Control.ScaleLine(),
+                new SuperMap.Control.LayerSwitcher(),
+                new SuperMap.Control.MousePosition()
+            ],
+            projection: "EPSG:3857",
+            maxExtent: new SuperMap.Bounds(-180.0, -85.05, 180.0, 85.05)
+        });
+        layer = new SuperMap.Layer.TiledDynamicRESTLayer("中国地图", url, { transparent: true }, { useCanvas: true });
+        layer.events.on({ "layerInitialized": addLayer });
+        vectorLayer = new SuperMap.Layer.Vector("呈现、操作图层");
+        utfgrid = new SuperMap.Layer.UTFGrid("UTFGridLayer", url, {
+            layerName: "China_Province_R@China400",
+            utfTileSize: 256,
+            pixcell: 8,
+            isUseCache: true
+        }, {
+            utfgridResolution: 8
+        });
+        utfgridcontrol = new SuperMap.Control.UTFGrid({
+            layers: [utfgrid],
+            callback: function(e) {
+                //			            console.log(e);
+                if (e && e[1].data && e[1].data.SmID) {
+                    QuerybySQL(e[1].data.SmID);
+                }
+            },
+            handlerMode: "hover" //使用hover事件，避免move事件大量重复触发回调函数
+        });
+        map.addControl(utfgridcontrol);
+        var selectFeature = new SuperMap.Control.SelectFeature(vectorLayer, //操作图层
+            {
+                hover: false, //鼠标悬浮在地物上时，选中地物
+                callbacks: { //更多事件
+                    click: function(e) {
+                        alert(e.attributes.ADMINNAME || e.attributes.NAME);
+                    }
+                }
+            });
+        map.addControl(selectFeature); //map上添加控件
+        selectFeature.activate(); //激活控件
+    }
+
+    function addLayer() {
+        map.addLayers([layer, utfgrid, vectorLayer]);
+        map.setCenter(new SuperMap.LonLat(105, 36), 5);
+    }
+
+    function QuerybySQL(id) {
+        if (id == hoverID) { return; }
+        //1.定义查询服务
+        var QueryBySQLService = new SuperMap.REST.QueryBySQLService(url, //地图服务URL，到地图名那级
+            {
+                eventListeners: {
+                    "processCompleted": queryCompleted, //查询完成执行函数queryCompleted
+                    "processFailed": queryError //查询失败执行函数queryError
+                }
+            }
+        );
+        //2.定义查询参数
+        var queryBySQLParams = new SuperMap.REST.QueryBySQLParameters({
+            queryOption: "ATTRIBUTEANDGEOMETRY", //查询结果类型枚举，该值为默认值，即返回地物和属性
+            queryParams: [
+                //				        new SuperMap.REST.FilterParameter({
+                //		                 name: "China_Town_P@China400",     //查询图层名，name和smid是该图层属性表字段之一
+                //		                attributeFilter: "name like '%一%' or smid<=5",//查询条件，相当于SQL语句WHERE部分
+                //				        orderBy:"smid ASC,name DESC", //查询结果按smid字段升序排列，相当于SQL语句ORDERBY语句部分
+                //				        fields:['name','smid']  //返回结果字段
+                //	                 }),
+                new SuperMap.REST.FilterParameter({
+                    name: "China_Province_R@China400",
+                    //				        orderBy:"USER_LEVEL,SmArea",
+                    //				        groupBy:"USER_LEVEL having count(*)=1",  //相当于SQL groupBy语句
+                    attributeFilter: "smid=" + id
+                })
+            ], // 查询过滤条件数组
+            returnContent: true //是否直接返回结果
+        });
+        //3.发送请求
+        QueryBySQLService.processAsync(queryBySQLParams); //将参数异步发送给服务器
+
+        hoverID = id; //避免重复查询
+    }
+
+    function queryCompleted(QueryResult) //传给回调函数的参数是SuperMap.REST.QueryResult或它的子类
+    {
+        console.log(QueryResult); //请在浏览器控制台查看返回结果
+        vectorLayer.removeAllFeatures(); //先移除所有要素
+        var feature;
+        if (QueryResult.result && QueryResult.result.recordsets) {
+            feature = QueryResult.result.recordsets[0].features[0]; //已经确定最多只有一个查询结果
+            feature.style = {
+                strokeColor: "#" + "000000".substring(0, 6 - Math.floor(Math.random() * 0xFFFFFF).toString(16).toUpperCase()) + Math.floor(Math.random() * 0xFFFFFF).toString(16).toUpperCase(),
+                strokeWidth: 5,
+                strokeDashstyle: "longdashdot",
+                pointRadius: 20,
+                pointerEvents: "visiblePainted",
+                fillColor: "#" + "000000".substring(0, 6 - Math.floor(Math.random() * 0xFFFFFF).toString(16).toUpperCase()) + Math.floor(Math.random() * 0xFFFFFF).toString(16).toUpperCase(),
+                fillOpacity: "0.8"
+            };
+            vectorLayer.addFeatures(feature);
+        }
+        QueryByGeometry(feature);
+    }
+
+    function queryError(QueryResult) {
+        console.log(QueryResult);
+        alert(QueryResult.error.errorMsg);
+    }
+
+    function QueryByGeometry(feature) {
+        console.log(feature);
+        //减少多边形节点可以加快查询速度
+        var pts = [];
+        for (var i = 0; i < feature.geometry.components[0].components[0].components.length; i += 100) {
+            var temp = feature.geometry.components[0].components[0].components;
+            pts.push(new SuperMap.Geometry.Point(temp[i].x, temp[i].y));
+        }
+        var Geometry = new SuperMap.Geometry.Polygon([new SuperMap.Geometry.LinearRing(pts)]);
+
+        //几何查询
+        var QueryByGeometryService = new SuperMap.REST.QueryByGeometryService(url, {
+            eventListeners: {
+                "processCompleted": queryByGeometryCompleted,
+                "processFailed": queryError
+            }
+        });
+        var QueryByGeometryParameters = new SuperMap.REST.QueryByGeometryParameters({
+            queryParams: [new SuperMap.REST.FilterParameter({ name: "China_PreCenCity_P@China400" })],
+            geometry: Geometry,
+            spatialQueryMode: SuperMap.REST.SpatialQueryMode.INTERSECT
+        });
+        QueryByGeometryService.processAsync(QueryByGeometryParameters);
+
+        function queryByGeometryCompleted(QueryResult) {
+            console.log(QueryResult);
+
+            var i, j, feature,
+                result = QueryResult.result;
+            console.log(result.recordsets[0].features[0]);
+            if (result && result.recordsets) {
+                for (i = 0; i < result.recordsets.length; i++) {
+                    if (result.recordsets[i].features) {
+                        for (j = 0; j < result.recordsets[i].features.length; j++) {
+                            feature = result.recordsets[i].features[j];
+                            feature.style = {
+                                strokeColor: "#" + "000000".substring(0, 6 - Math.floor(Math.random() * 0xFFFFFF).toString(16).toUpperCase()) + Math.floor(Math.random() * 0xFFFFFF).toString(16).toUpperCase(),
+                                strokeWidth: 5,
+                                strokeDashstyle: "longdashdot",
+                                pointRadius: 20,
+                                pointerEvents: "visiblePainted",
+                                fillColor: "#" + "000000".substring(0, 6 - Math.floor(Math.random() * 0xFFFFFF).toString(16).toUpperCase()) + Math.floor(Math.random() * 0xFFFFFF).toString(16).toUpperCase(),
+                                fillOpacity: "0.8"
+                            };
+                            vectorLayer.addFeatures(feature);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    </script>
+</head>
+
+<body onload="init()">
+    <div id="map"></div>
+    <a href="REST/getLayersList.html" target="_blank" style="position: absolute;top: 5%;left: 5%;">REST API获取图层列表</a>
+</body>
+
+</html>

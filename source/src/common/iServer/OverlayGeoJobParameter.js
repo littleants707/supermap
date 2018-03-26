@@ -1,0 +1,102 @@
+import {SuperMap} from '../SuperMap';
+import {Util} from '../commontypes/Util';
+import {OutputSetting} from './OutputSetting';
+
+/**
+ * @class SuperMap.OverlayGeoJobParameter
+ * @category  iServer ProcessingService OverlayAnalyst
+ * @classdesc 叠加分析任务参数类
+ * @param options - {Object} 必填参数。<br>
+ *         datasetName -{string} 数据集名。 <br>
+ *         datasetOverlay -{string} 叠加对象所在的数据集名称。 <br>
+ *         mode -{string} 叠加分析模式 。 <br>
+ *         output -{SuperMap.OutputSetting} 输出参数设置  <br>
+ */
+export class OverlayGeoJobParameter {
+
+    constructor(options) {
+        if (!options) {
+            return;
+        }
+        /**
+         * @member SuperMap.OverlayGeoJobParameter.prototype.datasetName -{string}
+         * @description 数据集名。
+         */
+        this.datasetName = "";
+
+        /**
+         * @member SuperMap.OverlayGeoJobParameter.prototype.datasetOverlay -{string}
+         * @description 叠加对象所在的数据集名称。
+         */
+        this.datasetOverlay = "";
+
+        /**
+         * @member SuperMap.OverlayGeoJobParameter.prototype.mode -{string}
+         * @description 叠加分析模式
+         */
+        this.mode = "";
+
+        /**
+         * @member SuperMap.OverlayGeoJobParameter.prototype.srcFields -{string}
+         * @description 输入数据需要保留的字段
+         */
+        this.srcFields = "";
+
+        /**
+         * @member SuperMap.OverlayGeoJobParameter.prototype.overlayFields -{string}
+         * @description 叠加数据需要保留的字段，对分析模式为clip、update、erase时，此参数无效。
+         */
+        this.overlayFields = "";
+
+        /**
+         * @member SuperMap.OverlayGeoJobParameter.prototype.output -{SuperMap.OutputSetting}
+         * @description 输出参数设置类
+         */
+        this.output = null;
+
+        Util.extend(this, options);
+        this.CLASS_NAME = "SuperMap.OverlayGeoJobParameter";
+    }
+
+    /**
+     * @function SuperMap.OverlayGeoJobParameter.destroy
+     * @override
+     */
+    destroy() {
+        this.datasetName = null;
+        this.datasetOverlay = null;
+        this.mode = null;
+        this.srcFields = null;
+        this.overlayFields = null;
+        if (this.output instanceof OutputSetting) {
+            this.output.destroy();
+            this.output = null;
+        }
+    }
+
+    /**
+     * @function SuperMap.OverlayGeoJobParameter.toObject
+     * @param OverlayGeoJobParameter - {Object} 点聚合分析任务参数。
+     * @param tempObj - {Object} 目标对象。
+     * @description 生成点聚合分析任务对象
+     */
+    static toObject(OverlayGeoJobParameter, tempObj) {
+        for (var name in OverlayGeoJobParameter) {
+            if (name == "datasetName") {
+                tempObj['input'] = tempObj['input'] || {};
+                tempObj['input'][name] = OverlayGeoJobParameter[name];
+                continue;
+            }
+            if (name === "output"){
+                tempObj['output'] = tempObj['output'] || {};
+                tempObj['output'] = OverlayGeoJobParameter[name];
+                continue;
+            }
+            tempObj['analyst'] = tempObj['analyst'] || {};
+            tempObj['analyst'][name] = OverlayGeoJobParameter[name];
+        }
+    }
+
+}
+
+SuperMap.OverlayGeoJobParameter = OverlayGeoJobParameter;

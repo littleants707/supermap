@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title data-i18n="resources.title_planesMonitor"></title>
+    <script type="text/javascript"
+            include="jquery,bootstrap,moment,bootstrap-datetimepicker,bootstrap-select,geohash,randomcolor,widgets.alert"
+            src="../js/include-web.js"></script>
+    <style>
+        .bootstrap-select {
+            width: 168px !important;
+        }
+
+        .form-group label {
+            width: 100px;
+        }
+
+        .tips {
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body style=" margin: 0;overflow: hidden;background: #fff;width: 100%;height:100%;position: absolute;top: 0;">
+<div id="map" style="margin:0 auto;width: 100%;height: 100%;border: 1px solid #dddddd"></div>
+<script type="text/javascript" include="mapv,elasticsearch" src="../../dist/include-leaflet.js"></script>
+<script type="text/javascript">
+    var map;
+    var timeControl,
+        liveESService,//实时点查询的ESService
+        trackESService,//历史轨迹查询的ESService
+        liveRenderer,//实时点层
+        trackLineLayers,//历史轨迹层
+        trackLineMap,//轨迹线数据
+        liveDataSet,//渲染用实时点数据集
+        planeStyles,
+        planeLabels,//航班信息提示框集合
+        dataUrl = "http://117.122.248.69:9200";
+
+    var flightIdens = [
+        'CCA4189', 'CCA4187', 'CBJ5531', 'CSC8747', 'TBA9879',
+        'CCA4113', 'CES2251', 'CCA4521', 'CSC8927', 'CSC8811',
+        'CSC8857', 'UEA2711', 'UEA2205', 'CCA4439', 'CCA415',
+        'CSC8719', 'CSC8555', 'CCA4211', 'HDA825'
+    ];
+
+    init();
+
+    function init() {
+        initMap();
+        liveESService = new SuperMap.ElasticSearch(dataUrl);
+        trackESService = new SuperMap.ElasticSearch(dataUrl);
+        planeStyles = initPlaneStyles();
+    }
+
+
+    //开始播放
+    function start() {
+        var options = getControlOptions();
+        if (!timeControl) {
+            timeControl = new SuperMap.TimeFlowControl(loadLiveData, options);
+        } else {
+            timeControl.updateOptions(options);
+        }
+        timeControl.start();
+    }
+
+    //暂停播放
+    function pause() {
+        timeControl.pause();
+    }
+
+    //停止播放
+    function stop() {
+        timeControl.stop();
+        clearAll();
+    }
+
+    //时间控制器回调参数，即每次刷新时执行的操作，此处为向服务器请求数据并绘制。实时刷新执行。
+    function loadLiveData(currentTime) {
+
+        var datetime = moment(currentTime).format("YYYY-MM-DDTHH:mm:ss") + "Z";
+        var options = getServiceParamOptions();
+        var liveParameters = [];
+        for (var i = 0; i < options.flightIds.length; i++) {
+            var code = options.flightIds[i];
+            if (code === 'ZUUU') {
+                continue;
+            }
+            liveParameters.push({index: "flights", type: "flight_utc"});
+            liveParameters.push({
+                "query": {
+                    "bool": {
+                        "must": {"match": {"ident": code}},
+                        "filter": {"match": {"datetime": datetime}},
+                    }
+                },
+                "sort": {"time-ms": {"order": "ASC"}},
+                "from": 0,
+                "size": 20
+            });
+        }
+        liveESService.msearch({body: liveParameters}, function (error, result) {
+            if (error) {
+                widgets.alert.showAlert(JSON.stringify(error), false);
+                timeControl.stop();
+                return;
+            }
+            result.responses && renderData.call(window, result.responses);
+        });
+        updateProgress(datetime);
+    }
+
+    //渲染实时点数据和轨迹图层
+    function renderData(result) {
+        if (timeControl && !timeControl.getRunning()) {
+            return;
+        }
+        var data = createLiveRendererData(result);
+
+        if (data.length < 1) {
+            return;
+        }
+        updateDataSet(data);
+
+        if (!liveRenderer) {
+            liveRenderer = L.supermap.mapVLayer(liveDataSet, {
+                zIndex: 800,
+                globalCompositeOperation: "lighter",
+                shadowColor: "white",
+                shadowBlur: 2,
+                draw: 'icon',
+                methods: {
+                    click: function (evt) {
+                        renderLiveLabel.call(window, evt)
+                    }
+                }
+            }).addTo(map);
+        } else {
+            liveRenderer.update({data: liveDataSet});
+        }
+
+        renderTrackLineLayers();
+    }
+
+    //解析点查询结果数据为mapv数据
+    function createLiveRendererData(results) {
+        var data = [];
+        results && results.map(function (result) {
+            result.hits.hits.map(function (source) {
+                var content = source._source;
+                data.push({
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [content.x, content.y],
+                    },
+                    deg: content.direction,
+                    icon: planeStyles[content.ident].img,
+                    ident: content.ident,
+                    content: content
+                });
+                trackLineMap = trackLineMap || {};
+                if (!trackLineMap[content.ident]) {
+                    trackLineMap[content.ident] = [];
+                }
+                trackLineMap[content.ident].push([content.x, content.y]);
+            });
+        });
+        return data;
+    }
+
+    //更新点数据集
+    function updateDataSet(data) {
+        if (!liveDataSet) {
+            liveDataSet = new mapv.DataSet(data);
+            return;
+        }
+        var dat = data.slice();
+        var innerData = liveDataSet.get();
+
+        for (var i = 0; i < dat.length; i++) {
+            for (var j = 0; j < innerData.length; j++) {
+                if (dat[i].ident === innerData[j].ident) {
+                    innerData[j] = dat[i];
+                    break;
+                }
+            }
+            //如果是新的飞机Id则追加到飞机数组里
+            if (j === innerData.length) {
+                innerData.push(dat[i]);
+            }
+
+        }
+        liveDataSet.set(innerData);
+    }
+
+    //渲染轨迹图层
+    function renderTrackLineLayers() {
+        if (!trackLineLayers) {
+            trackLineLayers = {};
+        }
+        for (var id in trackLineMap) {
+            renderTrackLayerData(id, trackLineMap[id]);
+        }
+
+    }
+
+    //渲染飞机id所对应的轨迹
+    function renderTrackLayerData(id, coordinates) {
+        var trackLayer = trackLineLayers[id];
+
+        var trackDataSet = new mapv.DataSet({
+            geometry: {
+                type: 'LineString',
+                coordinates: coordinates
+            }
+        });
+        if (!trackLayer) {
+            var options = {
+                zIndex: 1,
+                strokeStyle: planeStyles[id].color,
+                shadowColor: "white",
+                shadowBlur: 1,
+                lineCap: 'butt',
+                lineJoin: "round",
+                lineWidth: 3,
+                draw: 'simple'
+            };
+            trackLayer = L.supermap.mapVLayer(trackDataSet, options).addTo(map);
+            trackLineLayers[id] = trackLayer;
+        } else {
+            trackLayer.update({data: trackDataSet});
+        }
+    }
+
+    //实时点的提示框
+    function renderLiveLabel(data) {
+        planeLabels = planeLabels || {};
+        var content = data && data.content;
+
+        if (!content) return;
+        var latlng = L.latLng(content.y, content.x);
+        var labelContent = resources.text_flight + "： " + content.ident + "<br>" +
+            resources.text_startPoint + "： " + content.origin + "/" + content.originLabel + "<br>" +
+            resources.text_endPoint + "： " + content.destination + "/" + content.destinationLabel + "<br>" +
+            resources.text_time + "： " + content.datetime;
+        if (planeLabels[content.ident]) {
+            planeLabels[content.ident].remove();
+        }
+
+        planeLabels[content.ident] = L.popup({
+            autoPan: false,
+            maxWidth: 180,
+            offset: L.point(0, -1)
+        }).setContent(labelContent).setLatLng(latlng).addTo(map);
+
+    }
+
+
+    //初始化飞机的样式，颜色随机
+    function initPlaneStyles() {
+        var planes = {};
+        var colors = randomColor({
+            luminosity: 'bright',
+            hue: 'random',
+            alpha: 1,
+            count: flightIdens.length
+        });
+        $.ajaxSetup({
+            async: false
+        });
+        flightIdens.map(function (ident, key) {
+            var svgUrl = "data:image/svg+xml;utf8,";
+            $.get('../data/plane.svg', function (svg) {
+                $(svg).children('svg').children('path').attr('fill', colors[key]);
+                svgUrl += $(svg).children('svg')[0].outerHTML;
+                var img = new Image();
+                img.src = svgUrl;
+                planes[ident] = {color: colors[key], img: img};
+            });
+        });
+        return planes;
+    }
+
+    //获取时间控件设置的参数
+    function getControlOptions() {
+        var startTime = $("#startTime").val();
+        var endTime = $("#endTime").val();
+        startTime = new Date(Date.parse(startTime.replace(/-/g, "/"))).getTime();
+        endTime = new Date(Date.parse(endTime.replace(/-/g, "/"))).getTime();
+        var speed = $("#speed").val();
+        speed = (speed > 0) ? speed : 1000;
+        speed = parseInt(speed);
+        var frequency = $("#frequency").val();
+        frequency = (frequency > 0) ? frequency : 1000;
+        frequency = parseInt(frequency);
+        return {
+            startTime: startTime,
+            endTime: endTime,
+            speed: speed,
+            frequency: frequency
+        }
+    }
+
+    //获取ES服务查询参数
+    function getServiceParamOptions() {
+        var flightIds = $("#flightIds").val();
+        return {
+            flightIds: flightIds
+        }
+    }
+
+
+    //更新当前时间界面
+    function updateProgress(currentTime) {
+        $("#progress").html(currentTime);
+    }
+
+
+    //默认设置参数
+    function getDefaultControlOptions() {
+        var startMs = 1498781767725;
+        var endMs = 1498935332876;
+        var start = moment(startMs).format("YYYY-MM-DDTHH:mm:ss") + "Z";
+        var end = moment(endMs).format("YYYY-MM-DDTHH:mm:ss") + "Z";
+        return {
+            startTime: start,
+            endTime: end,
+            speed: 1000,
+            frequency: 100,
+        }
+    }
+
+    function initMap() {
+        if (!map) {
+            map = L.map('map', {
+                crs: L.CRS.EPSG3857,
+                center: [31.3677, 108.116],
+                maxZoom: 20,
+                minZoom: 3,
+                zoom: 7
+            });
+            var attr = 'Data © <a href="https://www.elastic.co/products/elasticsearch" target="_blank">Elasticsearch</a> Map Data <span>© <a href="http://support.supermap.com.cn/product/iServer.aspx" target="_blank">SuperMap iServer</a></span> with <span>© <a href="http://iclient.supermap.io" target="_blank">SuperMap iClient</a></span>';
+            var host = window.isLocal ? window.server : "http://support.supermap.com.cn:8090";
+            var url = host + "/iserver/services/map-china400/rest/maps/ChinaDark";
+            L.supermap.tiledMapLayer(url, {attribution: attr}).addTo(map);
+        }
+
+        initTimeControlView();
+    }
+
+    //初始化时间控制控件，仅UI
+    function initTimeControlView() {
+
+        var control = L.control({position: "topright"});
+        control.onAdd = function () {
+            var me = this;
+            me._div = L.DomUtil.create('div', 'panel panel-primary controlPane');
+            me._div.style.width = "300px";
+            var titleDiv = $("<div class='panel-heading text-center' id='toggle' style='cursor: pointer'>" +
+                "<span class='panel-title text-center'>" + resources.text_console + "</span>&nbsp;" +
+                "<span class='glyphicon glyphicon-triangle-top' id='toggleIcon' ></span></div>").appendTo(me._div);
+
+            var contentDiv = $("<div class='panel-body content center-block' style='font-size: 14px'></div>").appendTo(me._div);
+
+            var optionsDiv = $("<div class='' id='options'></div>").appendTo(contentDiv);
+
+            $("<div class='form-group'><label class='text-right' for='flightIds'  >" +
+                resources.text_flightNumber + "<span style='color:red'>*</span></label>" +
+                "<select class='selectpicker ' id='flightIds' multiple " +
+                "data-actions-box='true' " +
+                "data-select-all-Text='" + resources.text_allSelect + "' " +
+                "data-deselect-all-Text='" + resources.text_deSelectAll + "' " +
+                "title='" + resources.text_select + "'>" +
+                initSelectOpitons() +
+                "</select></div><hr/>").appendTo(optionsDiv);
+
+            function initSelectOpitons() {
+                var str = '';
+                flightIdens.map(function (ident, key) {
+                    str += "<option value=" + ident + " selected>" + ident + "</option> "
+
+                });
+                return str;
+            }
+
+            var defaultOption = getDefaultControlOptions();
+
+            $("<div class='form-group form-inline'><label class='text-right' for='startTime' >" + resources.text_startTime + "<span style='color:red'>*</span></label>" +
+                "<input id='startTime' type='text' class='form-control input-sm' placeholder='" + defaultOption.startTime +
+                "' value='" + defaultOption.startTime + "'/></div></div>").appendTo(optionsDiv);
+
+            $("<div class='form-group form-inline'><label class='text-right' for='endTime' >" + resources.text_finishTime + "<span style='color:red'>*</span></label>" +
+                "<input id='endTime' type='text' class='form-control input-sm' placeholder='" + defaultOption.endTime +
+                "' value='" + defaultOption.endTime + "'/></div></div>").appendTo(optionsDiv);
+
+            $("<div class='form-group form-inline'><label class='text-right' for='speed' >" + resources.text_refreshStepSize + "(ms)</label>" +
+                "<input id='speed' type='number' min='1' class='form-control input-sm' placeholder='" + defaultOption.speed +
+                "' value='" + defaultOption.speed + "'/></div></div>").appendTo(optionsDiv);
+
+            $("<div class='form-group form-inline'><label class='text-right' for='frequency' >" + resources.text_refreshFrequency + "(ms)</label>" +
+                "<input id='frequency' type='number' min='1' class='form-control input-sm' placeholder='" + defaultOption.frequency +
+                "' value='" + defaultOption.frequency + "'/></div></div>").appendTo(optionsDiv);
+
+            var progressDiv = $("<div class='form-group'><div class='form-horizontal text-center'><div class='form-group'>" +
+                "<label  for='progress'>" + resources.text_currentTime + "</label><span class='form-control-static' id='progress'>" + resources.text_noStart + "</span>" +
+                "</div></div></div>").appendTo(contentDiv);
+
+            var controlDiv = $("<section><div class='form-inline text-center'>" +
+                "<input id='start' type='button'  class='btn btn-default text-center' value='" + resources.btn_start + "'/>&nbsp;" +
+                "<input id='pause' type='button'  class='btn btn-default text-center' value='" + resources.btn_pause + "'/>&nbsp;" +
+                "<input id='stop' type='button'  class='btn btn-default text-center' value='" + resources.btn_stop + "'/>" +
+                "</div></section>").appendTo(contentDiv);
+
+
+            me._div.addEventListener('mouseover', function () {
+                me._map.dragging.disable();
+                me._map.scrollWheelZoom.disable();
+                me._map.doubleClickZoom.disable();
+            });
+            me._div.addEventListener('mouseout', function () {
+                me._map.dragging.enable();
+                me._map.scrollWheelZoom.enable();
+                me._map.doubleClickZoom.enable();
+            });
+
+            return me._div;
+        };
+        control.addTo(map);
+        var dateOptions = {
+            format: "YYYY-MM-DD HH:mm:ss",
+            stepping: 1,
+            showClose: true,
+            locale: 'zh-cn'
+        };
+        $("#startTime").datetimepicker(dateOptions);
+        $("#endTime").datetimepicker(dateOptions);
+        $('#flightIds').selectpicker();
+        $("#start").on('click', function () {
+            $("#options").slideUp("fast", function () {
+                toggle(this);
+            });
+            start();
+        });
+        $("#pause").on('click', pause);
+        $("#stop").on('click', stop);
+        $("#toggle").on('click', function () {
+            $("#options").slideToggle("fast", function () {
+                toggle(this);
+            });
+            return false;
+        });
+
+        function toggle(ele) {
+            if ($(ele).is(":visible")) {
+                $("#toggleIcon").attr('class', "glyphicon glyphicon-triangle-top");
+            } else {
+                $("#toggleIcon").attr('class', "glyphicon glyphicon-triangle-bottom");
+            }
+        }
+    }
+
+    function clearAll() {
+        if (timeControl) {
+            timeControl.destroy();
+            timeControl = null;
+        }
+        if (trackLineLayers) {
+            for (var id in trackLineLayers) {
+                map.removeLayer(trackLineLayers[id]);
+            }
+            trackLineLayers = null;
+        }
+        if (trackLineMap) {
+            trackLineMap = null;
+        }
+        if (liveRenderer) {
+            map.removeLayer(liveRenderer);
+            liveRenderer = null;
+        }
+        if (liveDataSet) {
+            liveDataSet = null;
+        }
+        if (planeLabels) {
+            for (var item in planeLabels) {
+                planeLabels[item].remove();
+            }
+            planeLabels = {};
+        }
+    }
+
+</script>
+</body>
+</html>
+
+

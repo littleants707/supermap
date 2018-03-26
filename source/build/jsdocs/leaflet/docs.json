@@ -1,0 +1,38 @@
+
+{
+    "opts": {
+        "recurse": true,
+        "template": "../template",
+        "configPath": "../leaflet",
+        "destination": "./docs/leaflet"
+    },
+    "disqus":"",
+    "tags": {
+        "allowUnknownTags": true,
+        "linkdoc-leaflet":"http://leafletjs.com/reference-1.2.0.html"
+    },
+    "i18n": {
+        "defaultLang": "en",
+        "possibleLang": ["en"],
+        "dbFilePath":"./build/jsdocs/leaflet"
+    },
+    "source": {
+        "includePattern": ".+\\.js?$",
+        "excludePattern": ".+\\\\src\\\\common\\\\iServer\\\\.*Service.js?$",
+        "include": [
+            "src/common","src/leaflet"
+        ],
+        "exclude": [
+            "src/common/overlay/feature","src/common/overlay/levelRenderer"
+        ]
+    },
+    "plugins": ["plugins/markdown","../plugins/factoryFunction","../plugins/linkdoc"],
+    "templates": {
+        "cleverLinks": true,
+        "monospaceLinks": true,
+        "default": {
+            "outputSourceFiles": false
+        }
+        //"applicationName": "iClient for Leaflet"
+    }
+}

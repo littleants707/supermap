@@ -1,0 +1,41 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title data-i18n="resources.title_mapQueryBySQL"></title>
+    <script type="text/javascript" src="../js/include-web.js"></script>
+</head>
+<body style=" margin: 0;overflow: hidden;background: #fff;width: 100%;height:100%;position: absolute;top: 0;">
+<div id="map" style="margin:0 auto;width: 100%;height: 100%"></div>
+<script type="text/javascript" src="../../dist/include-leaflet.js"></script>
+<script type="text/javascript">
+    var host = window.isLocal ? window.server : "http://support.supermap.com.cn:8090";
+    var map, resultLayer,
+        url = host + "/iserver/services/map-world/rest/maps/World";
+    map = L.map('map', {
+        preferCanvas: true,
+        crs: L.CRS.EPSG4326,
+        center: {lon: -120, lat: 0},
+        maxZoom: 18,
+        zoom: 2
+    });
+    L.supermap.tiledMapLayer(url).addTo(map);
+    query();
+
+    function query() {
+        var param = new SuperMap.QueryBySQLParameters({
+            queryParams: {
+                name: "Capitals@World.1",
+                attributeFilter: "SMID < 10"
+            }
+        });
+        L.supermap
+            .queryService(url)
+            .queryBySQL(param, function (serviceResult) {
+                var result = serviceResult.result;
+                resultLayer = L.geoJSON(result.recordsets[0].features).addTo(map);
+            });
+    }
+</script>
+</body>
+</html>

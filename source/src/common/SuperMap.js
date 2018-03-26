@@ -1,0 +1,1 @@
+export var SuperMap = window.SuperMap = window.SuperMap || {};
