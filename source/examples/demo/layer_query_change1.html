@@ -30,6 +30,19 @@
         z-index: 100;
         border-radius: 4px;
     }
+
+    .backHistory {
+        position: fixed;
+        right: 10px;
+        top: 10px;
+        z-index: 199;
+        background-color: #fc0;
+        line-height: 34px;
+        color: #4b4b4b;
+        width: 100px;
+        text-align: center;
+        letter-spacing: 5px;
+    }
     </style>
 </head>
 
@@ -42,12 +55,17 @@
         </div>
     </div> -->
     <div id="map"></div>
+    <div id="backHistory" class="backHistory">
+        返回
+    </div>
     <script type="text/javascript" src="config.js"></script>
     <script>
     var map,
         local,
+        backBtn = document.getElementById("backHistory"),
         areaLayerArray = new Array(),
         areaLayerObj = new Object(),
+        areaLayer,
         vectorLayer,
         pointLayer,
         style = {
@@ -79,35 +97,28 @@
         pointLayer = new SuperMap.Layer.Vector("pointLayer");
 
         for (var k in mapUrl) {
-            var areaLayer = new SuperMap.Layer.TiledDynamicRESTLayer("XinJiang_Citys@China_Citys", mapUrl[k], {
+            var layerName = mapUrl[k].substring(mapUrl[k].lastIndexOf('/') + 1);
+            var _areaLayer = new SuperMap.Layer.TiledDynamicRESTLayer(layerName, mapUrl[k], {
                 transparent: true,
                 cacheEnabled: true
             }, { maxResolution: "auto" });
 
-            areaLayerObj[k] = areaLayer;
-            areaLayerArray.push(areaLayer);
+            areaLayerObj[k] = _areaLayer;
+            areaLayerArray.push(_areaLayer);
         }
 
-        for (var i = 0; i < areaLayerArray.length; i++) {
-            if (i === (areaLayerArray.length - 1)) {
-                var lastLayer = areaLayerArray[i]
-                lastLayer.events.on({
-                    "layerInitialized": function() {
-                        var resLayer = areaLayerArray.concat(pointLayer, vectorLayer);
-                        lastLayer.isBaseLayer = true;
-                        map.addLayers(resLayer);
-                        map.setCenter(new SuperMap.LonLat(9453654.35, 5190100.64), 0);
-                    }
-                });
-            } else {
-                var forLayer = areaLayerArray[i];
-                forLayer.events.on({
-                    "layerInitialized": function() {
-                        forLayer.isBaseLayer = true;
-                    }
-                });
+        areaLayer = new SuperMap.Layer.TiledDynamicRESTLayer("XinJiang_Citys@China_Citys", mapUrl.XinJiang, {
+            transparent: true,
+            cacheEnabled: true
+        }, { maxResolution: "auto" });
+
+        areaLayer.events.on({
+            "layerInitialized": function() {
+                areaLayer.isBaseLayer = true;
+                map.addLayers([areaLayer, vectorLayer, pointLayer]);
+                map.setCenter(new SuperMap.LonLat(9453654.35, 5190100.64), 0);
             }
-        }
+        });
 
         map.events.on({
             'click': function(evt) {
@@ -154,14 +165,24 @@
                         feature.style = style;
                         console.log('queryBySQL feature++++++', feature)
                         // vectorLayer.addFeatures(feature);
+                        // if (feature.attributes.parentsID === "650000") {
 
+                        // }
+
+                        console.log('isHaveAreaLayer-=-=-=-=-',map.getLayer(areaLayer.id));
+                        if(!map.getLayer(areaLayer.id)){
+                        	return true;
+                        }
                         var showLayer = areaLayerObj[cfgUrl.name[feature.attributes.NAME]]
                         var showPointCenter = cfgUrl.point[cfgUrl.name[feature.attributes.NAME]].split(',')
 
-                        areaLayerArray[0].setVisibility(false);
-                        showLayer.setVisibility(true);
-                        // console.log('showPointCenter=====',showPointCenter);
-                        // map.removeLayer(areaLayerArray[0]);
+                        if (backBtn.getAttribute('layerId')) {
+                            backBtn.removeAttribute('layerId');
+                        }
+                        backBtn.setAttribute('layerId', showLayer.id);
+                        // console.log('showLayer-=-=-=-', showLayer)
+                        map.removeLayer(areaLayer);
+                        map.addLayer(showLayer);
                         map.setCenter(new SuperMap.LonLat(showPointCenter[0], showPointCenter[1]), 0);
                         map.setBaseLayer(showLayer);
                     }
@@ -172,6 +193,14 @@
 
     function processBySQLFailed(e) {
         console.log(e)
+    }
+
+    backBtn.onclick = function() {
+        var delLayer = map.getLayer(this.getAttribute('layerId'));
+        map.removeLayer(delLayer);
+        map.addLayer(areaLayer);
+        map.setCenter(new SuperMap.LonLat(9453654.35, 5190100.64), 0);
+        map.setBaseLayer(areaLayer);
     }
     </script>
 </body>
