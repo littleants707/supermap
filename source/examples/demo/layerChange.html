@@ -3,97 +3,208 @@
 
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title data-i18n="resources.title_toggleMaps"></title>
+    <title data-i18n="resources.title_eChartGraphBar"></title>
     <style type="text/css">
-    .editPane {
-        position: absolute;
-        right: 50px;
-        top: 50px;
-        text-align: center;
-        background: #FFF;
-        display: inline-block;
-        z-index: 1000;
+    .arc path {
+        stroke: #fff;
     }
     </style>
 </head>
 
 <body style=" margin: 0;overflow: hidden;background: #fff;width: 100%;height:100%;position: absolute;top: 0;">
-    <div class='panel panel-primary editPane' id='editPane' style="z-index: 99999">
-        <div class='panel-heading'>
-            <h5 class='panel-title text-center' data-i18n="resources.text_toggleMaps"></h5>
-        </div>
-        <div class='panel-body' id='params'>
-            <p></p>
-            <div align='center' class='input-group'>
-                <input type='button' id='btn1' class='btn btn-primary' data-i18n="[value]resources.btn_toggleMaps" onclick="changeMap()" />
-            </div>
-        </div>
-    </div>
     <div id="map" style="margin:0 auto;width: 100%;height: 100%"></div>
     <script type="text/javascript" include="bootstrap" src="../js/include-web.js"></script>
-    <script type="text/javascript" exclude="iclient-classic" src="../../dist/include-classic.js"></script>
+    <script type="text/javascript" exclude="iclient-classic" include="echarts-all" src="../../dist/include-classic.js"></script>
     <script type="text/javascript">
-    var host = window.isLocal ? window.server : "http://10.10.0.113:8090";
-    var map, layerXJ, layerALT, bt = false;
-    var url1 = host + "/iserver/services/map-China-XinJiang/rest/maps/XinJiang_Citys@China_Citys";
-    var url2 = host + "/iserver/services/map-China-XinJiang/rest/maps/aLeTai@XinJiang_County";
+    var map, layer, utfgrid, control, chartLayer,
+        host = window.isLocal ? window.server : "http://support.supermap.com.cn:8090",
+        url = host + "/iserver/services/map-china400/rest/maps/China";
+    var pieChartDom;
+    var elementsDiv;
+    var isMapMoving = false;
 
-    map = new SuperMap.Map("map", {
-        controls: [
-            new SuperMap.Control.ScaleLine(),
-            new SuperMap.Control.OverviewMap(),
-            new SuperMap.Control.Zoom(),
-            new SuperMap.Control.Navigation({
-                dragPanOptions: {
-                    enableKinetic: true
+    function init() {
+        map = new SuperMap.Map("map", {
+            controls: [
+                new SuperMap.Control.ScaleLine(),
+                new SuperMap.Control.Zoom(),
+                new SuperMap.Control.LayerSwitcher(),
+                new SuperMap.Control.Navigation({
+                    dragPanOptions: {
+                        enableKinetic: true
+                    }
+                })
+            ],
+            projection: "EPSG:3857"
+        });
+
+        //地图移动过程中不显示图表
+        map.events.on({
+            "movestart": function() {
+                document.getElementById("piechart").innerHTML = "";
+                pieChartDom.style.display = "none";
+                isMapMoving = true;
+            }
+        });
+        map.events.on({
+            "moveend": function() {
+                isMapMoving = false;
+            }
+        });
+
+        //基础图层
+        layer = new SuperMap.Layer.TiledDynamicRESTLayer("China", url, { transparent: true }, {
+            useCanvas: true,
+            maxResolution: "auto"
+        });
+
+        //创建 Elements 图层，用于显示饼图
+        chartLayer = new SuperMap.Layer.Elements("eCharts");
+
+        //获取 Elements 图层 div
+        elementsDiv = chartLayer.getDiv();
+        //设置Elements实例的div为地图大小
+        var mapsize = map.getSize();
+        elementsDiv.style.width = mapsize.w;
+        elementsDiv.style.height = mapsize.h;
+
+        //创建图表 div, 设置其基本属性, 并添加到  Elements 图层
+        pieChartDom = document.createElement("div");
+        pieChartDom.id = "piechart";
+        pieChartDom.style.width = "400px";
+        pieChartDom.style.height = "240px";
+        pieChartDom.style.position = "absolute";
+        pieChartDom.style.opacity = 0.8;
+        elementsDiv.appendChild(pieChartDom);
+
+        //创建 UTFGrid 图层，用于获取饼图所需信息
+        utfgrid = new SuperMap.Layer.UTFGrid("UTFGridLayer", url, {
+            layerName: "China_Province_pl@China",
+            utfTileSize: 256,
+            pixcell: 8,
+            isUseCache: true
+        }, {
+            utfgridResolution: 8
+        });
+
+        layer.events.on({ "layerInitialized": addLayer });
+        control = new SuperMap.Control.UTFGrid({
+            layers: [utfgrid],
+            callback: callback,
+            handlerMode: "move"
+        });
+        map.addControl(control);
+    }
+
+    $(document).ready(function() {
+        init();
+    });
+
+    // 鼠标移动中仍保持在同一个数据上
+    var isOneData = "";
+    var theDataCache;
+
+    // 相同数据检测
+    var callback = function(infoLookup, loc, pixel) {
+        if (infoLookup && isMapMoving === false) {
+            var info;
+                console.log('infoLookup-=-=---',infoLookup, loc, pixel)
+            for (var idx in infoLookup) {
+                info = infoLookup[idx];
+                if (info && info.data) {
+                    document.getElementById("piechart").innerHTML = "";
+                    pieChartDom.style.display = "block";
+
+                    // 基于准备好的dom，初始化echarts图表
+                    var myChart = echarts.init(pieChartDom);
+
+                    var thedata;
+                    if (isOneData != info.data.SMID) {
+                        // 数据（随机生成）
+                        thedata = [
+                            getRandomNumber(0, 1000, 0),
+                            getRandomNumber(0, 1000, 0),
+                            getRandomNumber(0, 1000, 0),
+                            getRandomNumber(0, 1000, 0),
+                            getRandomNumber(0, 1000, 0),
+                            getRandomNumber(0, 1000, 0)
+                        ];
+                        isOneData = info.data.SMID
+                    } else {
+                        thedata = theDataCache;
+                    }
+                    theDataCache = thedata;
+
+
+                    // echart 图表配置参数
+                    var option = {
+                        tooltip: {
+                            show: true
+                        },
+                        title: {
+                            x: "center",
+                            text: resources.text_salesVolume1 + info.data.NAME + resources.text_salesVolume2
+                        },
+                        xAxis: [{
+                            type: 'category',
+                            data: [resources.text_productA, resources.text_productB, resources.text_productC, resources.text_productD, resources.text_productE, resources.text_productF]
+                        }],
+                        yAxis: [{
+                            type: 'value'
+                        }],
+                        series: [{
+                            "name": "销量",
+                            "type": "bar",
+                            "data": thedata
+                        }]
+                    };
+
+                    // 为echarts对象加载数据
+                    myChart.setOption(option);
+
+                    // 图表位置
+                    pieChartDom.style.left = (pixel.x + 20) + "px";
+                    pieChartDom.style.top = (pixel.y - 20) + "px";
+                    // 图表背景颜色
+                    pieChartDom.style.backgroundColor = "#F4F3F0";
+                } else {
+                    //清除饼图
+                    document.getElementById("piechart").innerHTML = "";
+                    pieChartDom.style.display = "none";
                 }
-            })
-        ],
-        allOverlays: false
-    });
-    layerXJ = new SuperMap.Layer.TiledDynamicRESTLayer("XinJiang_Citys@China_Citys", url1, {
-        transparent: true,
-        cacheEnabled: true
-    });
-    layerALT = new SuperMap.Layer.TiledDynamicRESTLayer("aLeTai@XinJiang_County", url2, {
-        transparent: true,
-        cacheEnabled: true
-    });
-
-
-    layerXJ.events.on({
-        "layerInitialized": function() {
-            layerALT.events.on({
-                "layerInitialized": function() {
-                    layerXJ.isBaseLayer = true;
-                    layerALT.isBaseLayer = true;
-                    map.addLayers([layerXJ,layerALT]);
-                    map.setCenter(new SuperMap.LonLat(9453654.35 , 5190100.64), 0);
-                }
-            });
+            }
         }
-    });
+    };
 
+    // 获取指定范围内的随机数
+    // min - 范围下限
+    // max - 范围上限
+    // decimalNum - 返回结果的小数位数。如果为 0，返回整数。
+    function getRandomNumber(min, max, decimalNum) {
+        var rNum = min + Math.random() * (max - min);
 
-    //添加click事件
-    // map.events.on({"click": function(info){
-    //     debugger
-    // }});
+        if (decimalNum) {
+            if (!isNaN(decimalNum)) {
+                return rNum;
+            } else {
+                decimalNum = parseInt(decimalNum);
+            }
 
-    function changeMap() {
-        if (bt == false) {
-            layerXJ.setVisibility(false);
-            layerALT.setVisibility(true);
-            map.setCenter(new SuperMap.LonLat(9829577.16 , 5963012.82), 0);
-            map.setBaseLayer(layerALT);
-            bt = true;
-        } else if (bt == true) {
-            layerXJ.setVisibility(true);
-            layerALT.setVisibility(false);
-            map.setCenter(new SuperMap.LonLat(9453654.35 , 5190100.64), 0);
-            map.setBaseLayer(layerXJ);
-            bt = false;
+            if (decimalNum === 0) {
+                return Math.round(rNum);
+            } else {
+                return parseFloat(rNum).toFixed(decimalNum);
+            }
+        } else {
+            return rNum;
         }
+    }
+
+    //添加图层
+    function addLayer() {
+        var center = new SuperMap.LonLat(9733502.481499, 4614406.969325);
+        map.addLayers([layer, chartLayer, utfgrid]);
+        map.setCenter(center, 4);
     }
     </script>
 </body>

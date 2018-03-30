@@ -1,0 +1,115 @@
+<html>
+
+<head>
+    <meta charset='utf-8' />
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <title>切换图层ByGeometry</title>
+    <style>
+    body {
+        margin: 0;
+        padding: 0;
+    }
+
+    #map {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 100%;
+    }
+    </style>
+</head>
+
+<body>
+    <div id='map'></div>
+    <script type="text/javascript" include="bootstrap" src="../js/include-web.js"></script>
+    <script type="text/javascript" include="echarts" src="../../dist/include-mapboxgl.js"></script>
+    <script type="text/javascript">
+    var host = window.isLocal ? window.server : "http://10.10.0.113:8090",
+        attribution = "<a href='https://www.mapbox.com/about/maps/' target='_blank'>© Mapbox </a>" +
+        "| Image <span>© <a href='http://support.supermap.com.cn/product/iServer.aspx' target='_blank'>SuperMap iServer</a></span>" + " with <span>© <a href='http://iclient.supermap.io' target='_blank'>SuperMap iClient </a></span>" +
+        "| <a href='http://echarts.baidu.com' target='_blank'>© 2017 " + resources.title_3baidu + " ECharts</a>",
+        url = host + "/iserver/services/map-China-XinJiang/rest/maps/XinJiang_Citys@China_Citys",
+        tileURL = host + '/iserver/services/map-China-XinJiang/rest/maps/XinJiang_Citys@China_Citys/zxyTileImage.png?prjCoordSys={"epsgCode":3857}&z={z}&x={x}&y={y}',
+        dataUrl = host + '/iserver/services/data-China-XinJiang/rest/data';
+    var map = new mapboxgl.Map({
+        container: 'map',
+        style: {
+            "version": 8,
+            "sources": { // 数据源
+                "XinJiang_County": { // 数据源ID
+                    "attribution": attribution, // 版权控件
+                    //类型，栅格图像[vector, raster, raster-dem, geojson, video, image, canvas]
+                    "type": "raster",
+                    "tiles": [tileURL], // 瓦片url模板，支持轮询
+                    "tileSize": 256, // 瓦片大小，正方形边长
+                },
+            },
+            "layers": [{ // 图层
+                "id": "XinJiang_Citys@China_Citys", // 图层ID
+                "type": "raster", // 类型
+                "source": "XinJiang_County", // 使用的数据源
+                "minzoom": 0, // 最小缩放级别
+                "maxzoom": 22 // 最大缩放级别
+            }]
+        },
+        center: [85.143, 42.236],
+        zoom: 5
+    });
+    map.addControl(new mapboxgl.NavigationControl(), 'top-left');
+
+    map.on('click', function(evt) {
+        var x = evt.lngLat.lng;
+        var y = evt.lngLat.lat;
+        queryPointGeometry = {
+            "type": "Point",
+            "coordinates": [x, y]
+        };
+        queryByGeometry(queryPointGeometry)
+    })
+
+    function queryByGeometry(queryPointGeometry) {
+        /* 查询条件 */
+        var geometryParam = new SuperMap.GetFeaturesByGeometryParameters({
+            datasetNames: ["China_Citys:XinJiang_Citys_1"],
+            geometry: queryPointGeometry,
+            spatialQueryMode: "INTERSECT"
+        });
+        new mapboxgl.supermap.FeatureService(dataUrl).getFeaturesByGeometry(geometryParam, function(serviceResult) {
+            var i, j, feature,
+                result = serviceResult.result;
+            if (result && result.features.features) {
+                var features = result.features.features;
+                for (i = 0; i < features.length; i++) {
+                    /* 地图属性字段 */
+                    if (features[i].properties) {
+                        // console.log('queryBySQL properties 属性字段++++++', features[i].properties)
+                    }
+
+                    /* 地图坐标信息 */
+                    if (features[i].geometry) {
+
+                        map.addSource("queryDatas", {
+                            "type": "geojson",
+                            "data": serviceResult.result.features
+                        });
+                        map.addLayer({
+                            "id": "queryDatas",
+                            "type": "fill",
+                            "source": "queryDatas",
+                            "paint": {
+                                "fill-color": "rgba(255, 251, 240, 0.4)",
+                                'fill-outline-color': "#0066FF",
+                            },
+                        });
+                        // console.log('queryBySQL geometry 坐标信息++++++', features[i].geometry)
+                    }
+                }
+            }
+        });
+    }
+
+    // https://www.mapbox.com/mapbox-gl-js/example/toggle-layers/
+    </script>
+</body>
+
+</html>
