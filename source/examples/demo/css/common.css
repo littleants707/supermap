@@ -1,0 +1,42 @@
+@charset "utf-8";
+/*
+  Document   : CSS样式初始化
+  reset */
+abbr,address,article,aside,audio,b,blockquote,body,canvas,caption,cite,code,dd,del,details,dfn,div,dl,dt,em,fieldset,figcaption,figure,footer,form,h1,h2,h3,h4,h5,h6,header,hgroup,html,i,iframe,img,ins,kbd,label,legend,li,mark,menu,nav,object,ol,p,pre,q,samp,section,small,span,strong,sub,summary,sup,table,tbody,td,tfoot,th,thead,time,tr,ul,var,video{margin:0;padding:0;border:0;outline:0;-webkit-text-size-adjust:none;font-weight: normal;
+	font-style: normal;}
+article,aside,details,figcaption,figure,footer,header,hgroup,menu,nav,section{display:block}
+ins{background-color:#ff9;color:#000;text-decoration:none}
+mark{background-color:#ff9;color:#000;font-style:italic;font-weight:700}
+del{text-decoration:line-through;}
+abbr[title],dfn[title]{border-bottom:1px dotted;cursor:help}
+hr{display:block;}
+fieldset,img {border:0 none;}  /* 重置fieldset（表单分组）、图片的边框为0*/
+nav,dl,ul,ol,menu,li {list-style:none}   /* 重置类表前导符号为onne,menu在HTML5中有效 */
+blockquote, q {quotes: none}   /* 重置嵌套引用的引号类型 */
+blockquote:before, blockquote:after,q:before, q:after {content:'';content:none}  /* 重置嵌套引用*/
+input,select,textarea,button {vertical-align:middle}  /* 重置表单控件垂直居中*/
+input{border: none;}
+button {border:0 none;background-color:transparent;cursor:pointer}  /* 重置表单button按钮效果 */
+html,body {height: 100%;}   /* 重置html,body高度  */
+body,th,td,input,select,textarea,button {font-size:14px;font-family:"Microsoft YaHei","SimHei";color:#666;vertical-align:middle;} /* 重置页面文字属性 */
+a {color:#666;text-decoration:none}  /* 重置链接a标签 */
+a:active, a:hover {text-decoration:none}   /* 重置链接a标签的鼠标滑动效果 */
+address,caption,cite,code,dfn,em,var {font-style:normal;font-weight:normal}  /* 重置样式标签的样式 */
+caption {display:none;}    /* 重置表格标题为隐藏 */
+table {border-collapse:collapse;border-spacing:0;}    /* 重置table属性 */
+img{vertical-align:top}  /* 图片在当前行内的垂直位置 */
+/* 页面设置
+ * 取消a标签点击后的虚线框
+*/
+a{outline: none;}
+a:active {star:expression(this.onFocus=this.blur());}
+
+/* 浮动 */
+.fl-l,.fl{float:left;}
+.fl-r,.fr{float:right;}
+/********* 清除浮动 *********/
+.clear:before,.clearfix:before,.clear:after,.clearfix:after{content: '';display: block;clear: both;}
+
+/* 地图 */
+.map{position:absolute;width:100%;height:100%;border:1px solid #3473b7}
+.backHistory{position:fixed;right:10px;top:10px;z-index:199;background-color:#fc0;line-height:34px;color:#4b4b4b;width:100px;text-align:center;letter-spacing:5px}
